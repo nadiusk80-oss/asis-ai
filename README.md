@@ -32,6 +32,30 @@ python asis.py
 
 - Ajusta el nombre del archivo si el archivo principal tiene otro nombre.
 
+Configuración de la clave API
+
+Para que ASIS pueda conectarse al modelo Gemini necesitas configurar tu clave API en el archivo `asis.py`.
+
+Ejemplo (añade esto o edita la sección correspondiente en `asis.py`):
+
+```python
+from google import genai
+
+# 1. Configura tu API Key aquí
+API_KEY = "(API_KEY_HERE)"
+```
+
+También necesitas una clave API de Gemini. Si no tienes una, ve a:
+
+https://aistudio.google.com/prompts/new_chat
+
+Crea una nueva conversación o prompt, copia la clave API que te proporcione la plataforma y luego abre el archivo `asis.py` en tu editor de texto. Localiza la variable `API_KEY` y pega tu clave dentro de las comillas.
+
+Notas adicionales:
+
+- Guarda el archivo y vuelve a ejecutar `python asis.py`.
+- Por seguridad, evita subir tu clave API a repositorios públicos. Considera usar variables de entorno o un archivo de configuración ignorado por git para producción.
+
 Licencia
 
 Este proyecto es de código abierto; revisa el archivo LICENSE (si existe) para conocer los detalles de la licencia.
