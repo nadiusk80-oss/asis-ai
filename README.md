@@ -9,7 +9,7 @@ Características
 
 Requisitos
 
-1. Python 3.8+ instalado en tu sistema. Puedes comprobar la versión con:
+1. Python 3.14.7 instalado en tu sistema. Puedes comprobar la versión con:
 
 ```bash
 python --version
