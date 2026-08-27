@@ -19,7 +19,7 @@ python --version
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install gemini
+pip install google-genai
 ```
 
 Uso
