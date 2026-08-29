@@ -114,3 +114,122 @@ Sugerencias de mejora (opcional)
 Licencia
 
 Este proyecto es de código abierto; revisa el archivo LICENSE (si existe) para conocer los detalles de la licencia.
+
+---
+
+# English translation / README (English)
+
+ASIS is an open-source artificial intelligence implemented as a simple, easy-to-use Python file.
+
+Features
+
+- Open-source project: the source code is available for review, modification, and redistribution.
+- Implemented in Python: the main program is a .py file you can run locally or integrate into other projects.
+
+Requirements
+
+1. Python 3.14.7 installed on your system. You can check the version with:
+
+```bash
+python --version
+```
+
+2. The "gemini" library (or the required library named gemini) installed. Install it with pip:
+
+```bash
+python -m pip install --upgrade pip
+pip install google-genai
+```
+
+Usage
+
+- Run the main Python file (for example `asis.py`) with:
+
+```bash
+python asis.py
+```
+
+- Adjust the filename if the main file has a different name.
+
+API Key configuration
+
+For ASIS to connect to the Gemini model you need to configure your API key in the `asis.py` file.
+
+Example (add this or edit the corresponding section in `asis.py`):
+
+```python
+from google import genai
+
+# 1. Set your API Key here
+API_KEY = "(API_KEY_HERE)"
+```
+
+Obtaining the Gemini API key
+
+1. Go to: https://aistudio.google.com/prompts/new_chat
+2. Create a new conversation/prompt or follow the interface to generate/obtain your Gemini API key.
+3. Copy the key provided by the platform.
+
+How to paste the key into asis.py (Option A — direct)
+
+1. Open `asis.py` in your editor.
+2. Locate the section with the `API_KEY` variable and paste the key inside the quotes:
+
+```python
+API_KEY = "sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+```
+
+3. Save and run:
+
+```bash
+python asis.py
+```
+
+Warning: do not upload this key to public repositories.
+
+Recommended option: use an environment variable (Option B — safer)
+
+Edit `asis.py` to read the key from an environment variable:
+
+```python
+import os
+from google import genai
+
+API_KEY = os.getenv("ASIS_GEMINI_API_KEY")
+if not API_KEY:
+    raise RuntimeError("The environment variable ASIS_GEMINI_API_KEY is not set. Get the key at: https://aistudio.google.com/prompts/new_chat")
+
+# Use API_KEY with google-genai according to the rest of the code
+```
+
+On macOS / Linux (bash/zsh), export the variable and run:
+
+```bash
+export ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+python asis.py
+```
+
+On Windows (PowerShell), set and run:
+
+```powershell
+$env:ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+python asis.py
+```
+
+For persistent use, add the export to `~/.bashrc`, `~/.profile`, or use a `.env` file (make sure to add `.env` to `.gitignore`).
+
+Best practices
+
+- Never publish your key in public repositories.
+- Use environment variables or secret management services for production environments.
+- Revoke and regenerate the key if you think it has been leaked.
+- Consider adding a `.env.example` and document it in the README.
+
+Optional improvements
+
+- I can update `asis.py` to automatically read the environment variable and add a `.env.example` to the repo.
+- I can add a section to the README with steps to create a virtual environment and run the project in isolation.
+
+License
+
+This project is open-source; check the LICENSE file (if present) for license details.
