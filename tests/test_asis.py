@@ -15,16 +15,19 @@ class ProveedorFalso:
     def __init__(self, fragmentos=("Hola", ", mundo"), error=None):
         self.modelo = "modelo-falso"
         self.prompt = "prompt-falso"
-        self.temperatura = 0.7
         self.fragmentos = fragmentos
         self.error = error
         self.llamadas = []
+        self.modelos = ["gemini-3.8-flash", "gemini-flash-latest"]
 
     def generar(self, historial, mensaje, stream=True):
         self.llamadas.append(([dict(m) for m in historial], mensaje, stream))
         if self.error is not None:
             raise self.error
         yield from self.fragmentos
+
+    def listar_modelos(self):
+        return list(self.modelos)
 
 
 class EntradaFalsa(io.StringIO):
@@ -91,17 +94,6 @@ class PruebasConfiguracion(unittest.TestCase):
         with entorno(ASIS_GEMINI_API_KEY="asis", GEMINI_API_KEY="gemini"):
             self.assertEqual(asis.obtener_api_key(), "asis")
 
-    def test_temperatura_se_limita_entre_0_y_2(self):
-        with entorno(ASIS_TEMPERATURE="9"):
-            self.assertEqual(asis.obtener_temperatura(), 2.0)
-        with entorno(ASIS_TEMPERATURE="-3"):
-            self.assertEqual(asis.obtener_temperatura(), 0.0)
-
-    def test_temperatura_invalida(self):
-        with entorno(ASIS_TEMPERATURE="alta"):
-            with self.assertRaises(asis.ErrorAsis):
-                asis.obtener_temperatura()
-
     def test_historial_invalido(self):
         with entorno(ASIS_MAX_HISTORY="muchos"):
             with self.assertRaises(asis.ErrorAsis):
@@ -123,16 +115,14 @@ class PruebasAsistentes(unittest.TestCase):
                 nombre="Tutor",
                 descripcion="Ayuda a estudiar",
                 prompt="Se un tutor paciente",
-                modelo="gemini-2.5-pro",
-                temperatura=0.4,
+                modelo="gemini-3.8-flash",
             )
             asistentes = {}
             ruta = asis.guardar_asistente(asistente, asistentes)
 
             self.assertTrue(ruta.is_file())
             cargados = asis.cargar_asistentes()
-            self.assertEqual(cargados["tutor"].modelo, "gemini-2.5-pro")
-            self.assertEqual(cargados["tutor"].temperatura, 0.4)
+            self.assertEqual(cargados["tutor"].modelo, "gemini-3.8-flash")
 
             eliminado = asis.eliminar_asistente("Tutor", cargados)
             self.assertEqual(eliminado.nombre, "Tutor")
@@ -149,16 +139,20 @@ class PruebasAsistentes(unittest.TestCase):
             with self.assertRaises(asis.ErrorAsis):
                 asis.cargar_asistentes(ruta)
 
-    def test_desde_dict_ignora_temperatura_invalida(self):
+    def test_desde_dict_usa_valores_por_defecto(self):
         asistente = asis.Asistente.desde_dict(
-            {"nombre": "X", "temperatura": "muy alta"}
+            {"nombre": "X", "temperatura": "ignorada"}
         )
-        self.assertEqual(asistente.temperatura, asis.TEMPERATURA_POR_DEFECTO)
         self.assertEqual(asistente.modelo, asis.MODELO_POR_DEFECTO)
+        self.assertEqual(asistente.prompt, asis.PROMPT_POR_DEFECTO)
+
+    def test_desde_dict_sin_nombre(self):
+        with self.assertRaises(ValueError):
+            asis.Asistente.desde_dict({"prompt": "sin nombre"})
 
     def test_wizard_crea_asistente(self):
         respuestas = iter(
-            ["Mi IA", "Para cocinar", "Se un chef breve", "gemini-2.5-pro", "0.3"]
+            ["Mi IA", "Para cocinar", "Se un chef breve", "gemini-4-argon"]
         )
         with redirect_stdout(io.StringIO()):
             asistente = asis.crear_asistente_interactivo(
@@ -166,13 +160,10 @@ class PruebasAsistentes(unittest.TestCase):
             )
         self.assertEqual(asistente.nombre, "Mi IA")
         self.assertEqual(asistente.prompt, "Se un chef breve")
-        self.assertEqual(asistente.modelo, "gemini-2.5-pro")
-        self.assertEqual(asistente.temperatura, 0.3)
+        self.assertEqual(asistente.modelo, "gemini-4-argon")
 
-    def test_wizard_rechaza_nombres_y_temperaturas_invalidas(self):
-        respuestas = iter(
-            ["ASIS", "Mi IA", "", "", "", "alta", "3", "0.5"]
-        )
+    def test_wizard_rechaza_nombres_invalidos(self):
+        respuestas = iter(["ASIS", "Mi IA", "", "", ""])
         salida = io.StringIO()
         with redirect_stdout(salida):
             asistente = asis.crear_asistente_interactivo(
@@ -180,7 +171,7 @@ class PruebasAsistentes(unittest.TestCase):
             )
         self.assertEqual(asistente.nombre, "Mi IA")
         self.assertEqual(asistente.prompt, asis.PROMPT_POR_DEFECTO)
-        self.assertEqual(asistente.temperatura, 0.5)
+        self.assertEqual(asistente.modelo, asis.MODELO_POR_DEFECTO)
         self.assertIn("reservado", salida.getvalue())
 
 
@@ -248,12 +239,10 @@ class PruebasConversacion(unittest.TestCase):
                 nombre="Chef",
                 prompt="Cocina",
                 modelo="m1",
-                temperatura=0.2,
             )
         )
         self.assertEqual(conversacion.proveedor.prompt, "Cocina")
         self.assertEqual(conversacion.proveedor.modelo, "m1")
-        self.assertEqual(conversacion.proveedor.temperatura, 0.2)
 
 
 class PruebasComandos(unittest.TestCase):
@@ -271,10 +260,15 @@ class PruebasComandos(unittest.TestCase):
     def test_cambiar_modelo(self):
         cli = crear_cli()
         self.assertIn(
-            "Modelo cambiado a gemini-2.5-pro",
-            ejecutar_comando(cli, "/modelo gemini-2.5-pro"),
+            "Modelo cambiado a gemini-4-argon",
+            ejecutar_comando(cli, "/modelo gemini-4-argon"),
         )
-        self.assertEqual(cli.conversacion.proveedor.modelo, "gemini-2.5-pro")
+        self.assertEqual(cli.conversacion.proveedor.modelo, "gemini-4-argon")
+
+    def test_listar_modelos(self):
+        salida = ejecutar_comando(crear_cli(), "/modelos")
+        self.assertIn("gemini-3.8-flash", salida)
+        self.assertIn("gemini-flash-latest", salida)
 
     def test_modelo_sin_argumento(self):
         self.assertIn(
@@ -283,7 +277,7 @@ class PruebasComandos(unittest.TestCase):
 
     def test_crear_ia_desde_la_conversacion(self):
         with tempfile.TemporaryDirectory() as tmp, entorno(ASIS_HOME=tmp):
-            respuestas = iter(["Chef", "Cocina", "Se un chef", "", "0.4"])
+            respuestas = iter(["Chef", "Cocina", "Se un chef", ""])
             cli = crear_cli(entrada=lambda _: next(respuestas))
             salida = ejecutar_comando(cli, "/crear")
 
@@ -415,7 +409,7 @@ class PruebasMain(unittest.TestCase):
             codigo, salida = ejecutar_main(["--check"])
         self.assertEqual(codigo, 0)
         self.assertIn("Configuracion correcta", salida)
-        self.assertIn("gemini-2.5-flash", salida)
+        self.assertIn(asis.MODELO_POR_DEFECTO, salida)
         self.assertIn("Arquitectura:", salida)
         self.assertIn("bits", salida)
 
@@ -440,8 +434,20 @@ class PruebasMain(unittest.TestCase):
             )
             codigo, salida = ejecutar_main(["--lista-asistentes"])
         self.assertEqual(codigo, 0)
-        self.assertIn("Chef (gemini-2.5-flash)", salida)
+        self.assertIn(f"Chef ({asis.MODELO_POR_DEFECTO})", salida)
         self.assertIn("Cocina", salida)
+
+    def test_listar_modelos_desde_la_cli(self):
+        fabrica = mock.Mock(return_value=ProveedorFalso())
+        with tempfile.TemporaryDirectory() as tmp, entorno(
+            ASIS_GEMINI_API_KEY="clave-de-prueba", ASIS_HOME=tmp
+        ), mock.patch.object(asis, "cargar_dotenv", return_value={}):
+            codigo, salida = ejecutar_main(
+                ["--lista-modelos"], fabrica_proveedor=fabrica
+            )
+        self.assertEqual(codigo, 0)
+        self.assertIn("gemini-3.8-flash", salida)
+        self.assertIn("gemini-flash-latest", salida)
 
     def test_una_sola_pregunta(self):
         fabrica = mock.Mock(return_value=ProveedorFalso())
@@ -465,7 +471,6 @@ class PruebasMain(unittest.TestCase):
                     nombre="Chef",
                     prompt="Se un chef",
                     modelo="m-chef",
-                    temperatura=0.3,
                 ),
                 {},
             )
@@ -478,7 +483,6 @@ class PruebasMain(unittest.TestCase):
         kwargs = fabrica.call_args.kwargs
         self.assertEqual(kwargs["modelo"], "m-otro")
         self.assertEqual(kwargs["prompt"], "Se un chef")
-        self.assertEqual(kwargs["temperatura"], 0.3)
 
     def test_ia_inexistente(self):
         with tempfile.TemporaryDirectory() as tmp, entorno(

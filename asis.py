@@ -1,8 +1,8 @@
 """ASIS: crea tus propias IA y conversa con ellas desde la terminal.
 
 ASIS es una aplicacion de linea de comandos basada en los modelos Gemini de
-Google. Permite crear asistentes personalizados (nombre, personalidad, modelo
-y temperatura), guardarlos en disco y mantener conversaciones con contexto.
+Google. Permite crear asistentes personalizados (nombre, personalidad y
+modelo), guardarlos en disco y mantener conversaciones con contexto.
 """
 
 from __future__ import annotations
@@ -18,15 +18,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
-__version__ = "1.1.0"
+__version__ = "1.0.0"
 
-MODELO_POR_DEFECTO = "gemini-2.5-flash"
+# Alias mantenido por Google: apunta siempre al Flash mas reciente y evita
+# depender de una version concreta que pueda quedar obsoleta.
+MODELO_POR_DEFECTO = "gemini-flash-latest"
 PROMPT_POR_DEFECTO = (
     "Eres ASIS, un asistente de inteligencia artificial claro, directo y util. "
     "Responde en el idioma en el que te hable la persona usuaria. "
     "Si no sabes algo, dilo con honestidad en lugar de inventarlo."
 )
-TEMPERATURA_POR_DEFECTO = 0.7
 MAX_HISTORIAL_POR_DEFECTO = 40
 ARCHIVO_ENV_POR_DEFECTO = ".env"
 NOMBRE_APP = "ASIS"
@@ -82,19 +83,6 @@ def obtener_modelo() -> str:
 
 def obtener_prompt() -> str:
     return os.environ.get("ASIS_SYSTEM_PROMPT", PROMPT_POR_DEFECTO)
-
-
-def obtener_temperatura() -> float:
-    valor = os.environ.get("ASIS_TEMPERATURE")
-    if valor is None:
-        return TEMPERATURA_POR_DEFECTO
-    try:
-        temperatura = float(valor)
-    except ValueError as exc:
-        raise ErrorAsis(
-            f"ASIS_TEMPERATURE debe ser un numero entre 0 y 2, no {valor!r}."
-        ) from exc
-    return min(2.0, max(0.0, temperatura))
 
 
 def obtener_max_historial() -> int:
@@ -165,6 +153,7 @@ Comandos disponibles:
   /limpiar, /clear             Borra el historial de la conversacion.
   /historial, /history         Muestra cuantos mensajes hay en contexto.
   /modelo [nombre], /model     Muestra o cambia el modelo de Gemini.
+  /modelos, /models            Lista los modelos disponibles para tu clave.
   /guardar [ruta], /save       Guarda la conversacion en Markdown.
   /estado, /status             Muestra configuracion, IA activa y arquitectura.
   /salir, /quit, /exit         Termina la sesion.
@@ -183,7 +172,6 @@ class Asistente:
     descripcion: str = ""
     prompt: str = PROMPT_POR_DEFECTO
     modelo: str = MODELO_POR_DEFECTO
-    temperatura: float = TEMPERATURA_POR_DEFECTO
 
     def a_dict(self) -> dict[str, object]:
         return {
@@ -191,7 +179,6 @@ class Asistente:
             "descripcion": self.descripcion,
             "prompt": self.prompt,
             "modelo": self.modelo,
-            "temperatura": self.temperatura,
         }
 
     @classmethod
@@ -203,16 +190,11 @@ class Asistente:
             raise ValueError("El asistente no tiene nombre.")
         prompt = str(datos.get("prompt") or PROMPT_POR_DEFECTO)
         modelo = str(datos.get("modelo") or MODELO_POR_DEFECTO)
-        try:
-            temperatura = float(datos.get("temperatura", TEMPERATURA_POR_DEFECTO))
-        except (TypeError, ValueError):
-            temperatura = TEMPERATURA_POR_DEFECTO
         return cls(
             nombre=nombre,
             descripcion=str(datos.get("descripcion") or ""),
             prompt=prompt,
             modelo=modelo,
-            temperatura=min(2.0, max(0.0, temperatura)),
         )
 
 
@@ -321,26 +303,11 @@ def crear_asistente_interactivo(
     prompt = entrada("Como debe comportarse (personalidad e instrucciones): ").strip()
     modelo = entrada(f"Modelo [{MODELO_POR_DEFECTO}]: ").strip() or MODELO_POR_DEFECTO
 
-    while True:
-        texto = entrada(f"Temperatura 0-2 [{TEMPERATURA_POR_DEFECTO}]: ").strip()
-        if not texto:
-            temperatura = TEMPERATURA_POR_DEFECTO
-            break
-        try:
-            temperatura = float(texto)
-        except ValueError:
-            print("Escribe un numero entre 0 y 2.")
-            continue
-        if 0 <= temperatura <= 2:
-            break
-        print("La temperatura debe estar entre 0 y 2.")
-
     return Asistente(
         nombre=nombre,
         descripcion=descripcion,
         prompt=prompt or PROMPT_POR_DEFECTO,
         modelo=modelo,
-        temperatura=temperatura,
     )
 
 
@@ -376,7 +343,6 @@ class ProveedorGemini:
         api_key: str,
         modelo: str,
         prompt: str = PROMPT_POR_DEFECTO,
-        temperatura: float = TEMPERATURA_POR_DEFECTO,
     ) -> None:
         try:
             from google import genai
@@ -389,9 +355,24 @@ class ProveedorGemini:
 
         self.modelo = modelo
         self.prompt = prompt
-        self.temperatura = temperatura
         self._types = types
         self._cliente = genai.Client(api_key=api_key)
+
+    def listar_modelos(self) -> list[str]:
+        try:
+            nombres = set()
+            for modelo in self._cliente.models.list():
+                nombre = str(getattr(modelo, "name", "") or "")
+                if nombre.startswith("models/"):
+                    nombre = nombre.split("/", 1)[1]
+                acciones = getattr(modelo, "supported_actions", None) or []
+                if acciones and "generateContent" not in acciones:
+                    continue
+                if nombre:
+                    nombres.add(nombre)
+        except Exception as exc:
+            raise ErrorAsis(explicar_error(exc)) from exc
+        return sorted(nombres)
 
     def _contenidos(self, historial: Sequence[dict[str, str]]):
         return [
@@ -413,8 +394,7 @@ class ProveedorGemini:
             self._types.Content(role="user", parts=[self._types.Part(text=mensaje)])
         )
         config = self._types.GenerateContentConfig(
-            system_instruction=self.prompt,
-            temperature=self.temperatura,
+            system_instruction=self.prompt
         )
 
         if stream:
@@ -459,12 +439,10 @@ class Conversacion:
     def aplicar(self, asistente: Asistente) -> None:
         self.proveedor.prompt = asistente.prompt
         self.proveedor.modelo = asistente.modelo
-        self.proveedor.temperatura = asistente.temperatura
 
     def aplicar_integrada(self) -> None:
         self.proveedor.prompt = obtener_prompt()
         self.proveedor.modelo = obtener_modelo()
-        self.proveedor.temperatura = obtener_temperatura()
 
     def responder(
         self,
@@ -525,8 +503,8 @@ def explicar_error(exc: Exception) -> str:
         return "Se agoto la cuota o el limite de peticiones de la API. Intenta de nuevo en un momento."
     if "not found" in bajo and "model" in bajo:
         return (
-            "Ese modelo no esta disponible para tu clave. Cambia de modelo con "
-            "/modelo <nombre>, por ejemplo gemini-2.5-flash."
+            "Ese modelo no esta disponible para tu clave. Consulta los modelos "
+            "disponibles con /modelos y cambia con /modelo <nombre>."
         )
     if "connect" in bajo or "timeout" in bajo or "network" in bajo:
         return "No se pudo conectar con Gemini. Revisa tu conexion a internet e intentalo de nuevo."
@@ -615,6 +593,14 @@ class Cli:
                 print(self.estilo.ok(f"Modelo cambiado a {argumento}."))
             else:
                 print(f"Modelo actual: {self.conversacion.proveedor.modelo}")
+        elif comando in {"/modelos", "/models"}:
+            modelos = self.conversacion.proveedor.listar_modelos()
+            if modelos:
+                print("Modelos disponibles para tu clave:")
+                for nombre in modelos:
+                    print(f"  {nombre}")
+            else:
+                print("La API no devolvio modelos disponibles.")
         elif comando in {"/crear", "/nueva-ia", "/nueva"}:
             self.crear()
         elif comando in {"/asistentes", "/ias"}:
@@ -742,6 +728,12 @@ def construir_parser() -> argparse.ArgumentParser:
         help="Lista tus IA personalizadas y termina.",
     )
     parser.add_argument(
+        "--lista-modelos",
+        dest="lista_modelos",
+        action="store_true",
+        help="Lista los modelos disponibles para tu clave y termina.",
+    )
+    parser.add_argument(
         "--sin-streaming",
         "--no-stream",
         action="store_true",
@@ -831,7 +823,6 @@ def main(
 
         modelo = args.modelo or (perfil.modelo if perfil else obtener_modelo())
         sistema = args.sistema or (perfil.prompt if perfil else obtener_prompt())
-        temperatura = perfil.temperatura if perfil else obtener_temperatura()
         actual = perfil.nombre if perfil else NOMBRE_INTEGRADO
         max_historial = obtener_max_historial()
     except ErrorAsis as exc:
@@ -850,12 +841,23 @@ def main(
 
     fabrica = fabrica_proveedor or ProveedorGemini
     try:
-        proveedor = fabrica(
-            api_key=api_key, modelo=modelo, prompt=sistema, temperatura=temperatura
-        )
+        proveedor = fabrica(api_key=api_key, modelo=modelo, prompt=sistema)
     except ErrorAsis as exc:
         print(estilo.error(str(exc)))
         return 2
+
+    if args.lista_modelos:
+        try:
+            modelos = proveedor.listar_modelos()
+        except ErrorAsis as exc:
+            print(estilo.error(str(exc)))
+            return 1
+        if not modelos:
+            print("La API no devolvio modelos disponibles.")
+            return 0
+        for nombre in modelos:
+            print(nombre)
+        return 0
 
     conversacion = Conversacion(
         proveedor=proveedor,

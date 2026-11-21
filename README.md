@@ -4,14 +4,15 @@
 [![Python](https://img.shields.io/badge/python-3.10%2B%20x64-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-ASIS es una aplicacion de terminal para **crear tus propias IA**. Cada IA que creas tiene nombre, personalidad, modelo y temperatura propios; se guarda en tu equipo y puedes conversar con ella cuando quieras.
+ASIS es una aplicacion de terminal para **crear tus propias IA**. Cada IA que creas tiene nombre, personalidad e instrucciones propias; se guarda en tu equipo y puedes conversar con ella cuando quieras.
 
 Por dentro usa la API de **Gemini** de Google. ASIS no entrena un modelo propio: es un cliente abierto, legible y facil de modificar que convierte a Gemini en tantos asistentes personalizados como quieras. Todo el nucleo cabe en `asis.py`.
 
 ## Caracteristicas
 
-- Crea tus propias IA con un asistente guiado: nombre, descripcion, personalidad, modelo y temperatura.
+- Crea tus propias IA con un asistente guiado: nombre, descripcion, personalidad y modelo de Gemini.
 - Guarda, lista, cambia y elimina tus IA cuando quieras.
+- Consulta que modelos acepta tu clave con `/modelos` o `--lista-modelos`.
 - Conversacion interactiva con memoria del contexto e historial configurable.
 - Respuestas en streaming, fragmento a fragmento.
 - Modo de una sola pregunta y entrada por pipe (`echo ... | python asis.py`).
@@ -67,8 +68,7 @@ ASIS te pedira:
 1. Nombre de tu IA.
 2. Una descripcion breve.
 3. Como debe comportarse (personalidad e instrucciones).
-4. Modelo de Gemini.
-5. Temperatura entre 0 y 2.
+4. Modelo de Gemini (por defecto `gemini-flash-latest`).
 
 Luego conversa con ella:
 
@@ -133,12 +133,19 @@ El entorno tiene prioridad sobre `.env`, de modo que puedes sobrescribir valores
 | --- | --- | --- |
 | `ASIS_GEMINI_API_KEY` | sin valor | Clave de API de Gemini. Obligatoria para conversar. |
 | `GEMINI_API_KEY` | sin valor | Alternativa a la anterior. |
-| `ASIS_MODEL` | `gemini-2.5-flash` | Modelo de la IA integrada. |
-| `ASIS_TEMPERATURE` | `0.7` | Creatividad de 0 a 2 de la IA integrada. |
+| `ASIS_MODEL` | `gemini-flash-latest` | Modelo de la IA integrada. |
 | `ASIS_MAX_HISTORY` | `40` | Mensajes de contexto que se conservan. |
 | `ASIS_SYSTEM_PROMPT` | persona de ASIS | Instruccion de sistema de la IA integrada. |
 | `ASIS_ASISTENTE` | sin valor | Nombre de la IA personalizada que se usa al arrancar. |
 | `ASIS_HOME` | `~/.asis` | Carpeta donde se guardan tus IA. |
+
+### Modelos
+
+ASIS usa `gemini-flash-latest` por defecto: es un alias que Google mantiene apuntando al Flash mas reciente, asi que no deja de funcionar cuando retiran una version. Puedes elegir otro con `ASIS_MODEL`, `--modelo` o el asistente de creacion.
+
+Google retiro `gemini-2.5-flash` y `gemini-2.5-pro` el 2 de noviembre de 2026; las claves antiguas que los usen recibiran un error 404. Si guardaste una IA con uno de esos modelos, edita su modelo con `/modelo` o vuelve a crearla. Para ver la lista exacta que acepta tu clave usa `/modelos` dentro de la conversacion o `python asis.py --lista-modelos`.
+
+ASIS ya no envia `temperature` a la API: Gemini 3.6 y posteriores ignoran ese parametro y los modelos futuros podrian rechazarlo.
 
 ## Uso
 
@@ -158,8 +165,14 @@ python asis.py "Explicame la fotosintesis en tres frases"
 Usa otro modelo o cambia la persona:
 
 ```bash
-python asis.py --modelo gemini-2.5-pro
+python asis.py --modelo gemini-3.8-flash
 python asis.py --sistema "Responde siempre en formato de lista"
+```
+
+Consulta los modelos disponibles para tu clave y sal:
+
+```bash
+python asis.py --lista-modelos
 ```
 
 Envia una pregunta por un pipe:
@@ -188,6 +201,7 @@ python asis.py --check
 | `/limpiar` | `/clear` | Borra el historial de contexto. |
 | `/historial` | `/history` | Indica cuantos mensajes hay en contexto. |
 | `/modelo [nombre]` | `/model` | Muestra o cambia el modelo de la sesion. |
+| `/modelos` | `/models` | Lista los modelos que acepta tu clave de API. |
 | `/guardar [ruta]` | `/save` | Guarda la charla en Markdown. |
 | `/estado` | `/status` | Muestra IA, modelo, clave enmascarada, arquitectura y datos. |
 | `/salir` | `/quit`, `/exit` | Termina la sesion. |
@@ -203,6 +217,7 @@ python asis.py --check
 | `-a`, `--asistente` | Nombre de la IA personalizada a usar. |
 | `--crear` | Crea una IA personalizada y termina. No necesita clave de API. |
 | `--lista-asistentes`, `--asistentes` | Lista tus IA y termina. |
+| `--lista-modelos` | Lista los modelos disponibles para tu clave y termina. |
 | `--sin-streaming`, `--no-stream` | Espera la respuesta completa. |
 | `--check` | Valida la configuracion y termina. |
 | `--version` | Muestra la version. |
@@ -262,16 +277,17 @@ Distribuido bajo la licencia MIT. Consulta [LICENSE](LICENSE).
 
 # English
 
-ASIS is a terminal application to **create your own AIs**. Every AI you create has its own name, personality, model, and temperature; it is stored on your machine and can be used in any session.
+ASIS is a terminal application to **create your own AIs**. Every AI you create has its own name, personality, and instructions; it is stored on your machine and can be used in any session.
 
 Internally it uses Google's **Gemini** API. ASIS does not train a model: it is a small, readable client that turns Gemini into as many custom assistants as you want. The core lives in a single Python file.
 
 ## Features
 
-- Guided creation of your own AIs (name, description, personality, model, temperature).
+- Guided creation of your own AIs (name, description, personality, Gemini model).
 - Store, list, switch, and delete your AIs.
 - Context-aware chat with streaming responses and configurable history.
 - One-shot questions, pipe input, and Markdown export.
+- List the models your API key accepts with `/modelos` or `--lista-modelos`.
 - Environment variables or `.env`; the key never lives in the code.
 - Clear errors for invalid keys, quotas, and network issues.
 - 64-bit requirement, runtime check, and a 64-bit executable build script.
@@ -308,7 +324,9 @@ AIs are saved to `~/.asis/asistentes.json` (override with `ASIS_HOME`). Inside t
 cp .env.example .env             # Windows: Copy-Item .env.example .env
 ```
 
-Set `ASIS_GEMINI_API_KEY` in `.env` or your environment. Optional variables: `ASIS_MODEL` (default `gemini-2.5-flash`), `ASIS_TEMPERATURE` (0.7), `ASIS_MAX_HISTORY` (40), `ASIS_SYSTEM_PROMPT`, `ASIS_ASISTENTE`, `ASIS_HOME`.
+Set `ASIS_GEMINI_API_KEY` in `.env` or your environment. Optional variables: `ASIS_MODEL` (default `gemini-flash-latest`), `ASIS_MAX_HISTORY` (40), `ASIS_SYSTEM_PROMPT`, `ASIS_ASISTENTE`, `ASIS_HOME`.
+
+`gemini-flash-latest` is a Google-maintained alias for the newest Flash model, so it keeps working across releases. Google retired `gemini-2.5-flash` and `gemini-2.5-pro` on November 2, 2026; API keys that still request them get a 404. Use `/modelos` or `python asis.py --lista-modelos` to see exactly what your key accepts. ASIS no longer sends `temperature`: Gemini 3.6 and later ignore it, and future models may reject it.
 
 ## Usage
 
@@ -316,7 +334,8 @@ Set `ASIS_GEMINI_API_KEY` in `.env` or your environment. Optional variables: `AS
 python asis.py                              # interactive chat
 python asis.py "Explain photosynthesis"     # one-shot answer
 python asis.py --asistente "My AI"          # use a custom AI
-python asis.py --model gemini-2.5-pro       # choose a model
+python asis.py --model gemini-3.8-flash     # choose a model
+python asis.py --lista-modelos              # list available models
 python asis.py --check                      # validate configuration
 echo "What is an API?" | python asis.py
 ```
