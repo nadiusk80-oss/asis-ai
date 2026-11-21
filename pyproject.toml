@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asis-ai"
+version = "1.1.0"
+description = "ASIS: asistente de inteligencia artificial para la terminal, impulsado por Gemini."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "nadiusk80-oss" }]
+keywords = ["ai", "assistant", "cli", "gemini", "chatbot"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+dependencies = ["google-genai>=1.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/nadiusk80-oss/asis-ai"
+
+[project.scripts]
+asis = "asis:main"
+
+[tool.setuptools]
+py-modules = ["asis"]

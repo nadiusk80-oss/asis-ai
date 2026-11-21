@@ -1,235 +1,345 @@
-# asis-ai
+# ASIS
 
-ASIS es una inteligencia artificial de código abierto implementada como un archivo Python sencillo y fácil de usar.
+[![CI](https://github.com/nadiusk80-oss/asis-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/nadiusk80-oss/asis-ai/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B%20x64-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Características
+ASIS es una aplicacion de terminal para **crear tus propias IA**. Cada IA que creas tiene nombre, personalidad, modelo y temperatura propios; se guarda en tu equipo y puedes conversar con ella cuando quieras.
 
-- Proyecto open-source: el código fuente está disponible para revisarlo, modificarlo y redistribuirlo.
-- Implementado en Python: el programa principal es un archivo .py para ejecutar localmente o integrarlo en otros proyectos.
+Por dentro usa la API de **Gemini** de Google. ASIS no entrena un modelo propio: es un cliente abierto, legible y facil de modificar que convierte a Gemini en tantos asistentes personalizados como quieras. Todo el nucleo cabe en `asis.py`.
 
-Requisitos
+## Caracteristicas
 
-1. Python 3.14.7 instalado en tu sistema. Puedes comprobar la versión con:
+- Crea tus propias IA con un asistente guiado: nombre, descripcion, personalidad, modelo y temperatura.
+- Guarda, lista, cambia y elimina tus IA cuando quieras.
+- Conversacion interactiva con memoria del contexto e historial configurable.
+- Respuestas en streaming, fragmento a fragmento.
+- Modo de una sola pregunta y entrada por pipe (`echo ... | python asis.py`).
+- Configuracion por variables de entorno o archivo `.env`; la clave nunca vive en el codigo.
+- Mensajes de error claros para claves invalidas, cuotas agotadas o problemas de red.
+- Exportacion de conversaciones a Markdown.
+- **64 bits**: requisito documentado, comprobacion en tiempo de ejecucion y build de ejecutable de 64 bits.
+- Pruebas automaticas sin conexion, integracion continua y licencia MIT.
+
+## Requisitos
+
+- **Python 3.10 o superior, de 64 bits.**
+- Una clave de API de Gemini, gratuita en <https://aistudio.google.com/apikey>.
+
+### Comprobar que tu Python es de 64 bits
 
 ```bash
-python --version
+python -c "import struct; print(struct.calcsize('P') * 8, 'bits')"
 ```
 
-2. La librería "gemini" (o la librería necesaria llamada gemini) instalada. Instálala con pip:
+Debe imprimir `64 bits`. En Windows, descarga el instalador **Windows installer (64-bit)** desde <https://www.python.org/downloads/windows/>. ASIS funciona en 32 bits, pero avisa al arrancar y el build de ejecutables exige 64 bits para que el `.exe` resultante sea de 64 bits.
+
+## Instalacion
 
 ```bash
+git clone https://github.com/nadiusk80-oss/asis-ai.git
+cd asis-ai
+
+python -m venv .venv
+
+# Windows (PowerShell o CMD)
+.venv\Scripts\activate
+
+# macOS / Linux
+source .venv/bin/activate
+
 python -m pip install --upgrade pip
-pip install google-genai
+python -m pip install -r requirements.txt
 ```
 
-Uso
+Si quieres el comando `asis` instalado, ejecuta `python -m pip install -e .` y usa `asis` en lugar de `python asis.py`.
 
-- Ejecuta el archivo Python principal (por ejemplo `asis.py`) con:
+## Crea tu primera IA
+
+Ejecuta el asistente de creacion:
 
 ```bash
-python asis.py
+python asis.py --crear
 ```
 
-- Ajusta el nombre del archivo si el archivo principal tiene otro nombre.
+ASIS te pedira:
 
-Configuración de la clave API
+1. Nombre de tu IA.
+2. Una descripcion breve.
+3. Como debe comportarse (personalidad e instrucciones).
+4. Modelo de Gemini.
+5. Temperatura entre 0 y 2.
 
-Para que ASIS pueda conectarse al modelo Gemini necesitas configurar tu clave API en el archivo `asis.py`.
-
-Ejemplo (añade esto o edita la sección correspondiente en `asis.py`):
-
-```python
-from google import genai
-
-# 1. Configura tu API Key aquí
-API_KEY = "(API_KEY_HERE)"
-```
-
-Obtener la clave API de Gemini
-
-1. Ve a: https://aistudio.google.com/prompts/new_chat
-2. Crea una nueva conversación/prompt o sigue la interfaz para generar/obtener tu clave API de Gemini.
-3. Copia la clave proporcionada por la plataforma.
-
-Cómo pegar la clave en asis.py (Opción A — directo)
-
-1. Abre `asis.py` en tu editor.
-2. Localiza la sección con la variable `API_KEY` y pega la clave entre comillas:
-
-```python
-API_KEY = "sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-```
-
-3. Guarda y ejecuta:
+Luego conversa con ella:
 
 ```bash
-python asis.py
+python asis.py --asistente "Mi IA"
 ```
 
-Advertencia: no subas esta clave a repositorios públicos.
-
-Opción recomendada: usar una variable de entorno (Opción B — más segura)
-
-Edita `asis.py` para leer la clave desde la variable de entorno:
-
-```python
-import os
-from google import genai
-
-API_KEY = os.getenv("ASIS_GEMINI_API_KEY")
-if not API_KEY:
-    raise RuntimeError("La variable de entorno ASIS_GEMINI_API_KEY no está configurada. Busca la clave en: https://aistudio.google.com/prompts/new_chat")
-
-# Usa API_KEY con la librería google-genai según el resto del código
-```
-
-En macOS / Linux (bash/zsh), exporta la variable y ejecuta:
+Lista tus IA guardadas:
 
 ```bash
-export ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-python asis.py
+python asis.py --lista-asistentes
 ```
 
-En Windows (PowerShell), establece y ejecuta:
+Las IA se guardan en `~/.asis/asistentes.json` (en Windows, `C:\Users\<tu_usuario>\.asis\asistentes.json`). Puedes cambiar la ubicacion con `ASIS_HOME`.
+
+### Crear y administrar IA dentro de la conversacion
+
+| Comando | Accion |
+| --- | --- |
+| `/crear` | Crea una IA personalizada y la activa. |
+| `/asistentes` | Lista la IA integrada y las que has creado. |
+| `/asistente NOMBRE` | Cambia la IA activa. Usa `/asistente ASIS` para volver a la integrada. |
+| `/borrar-asistente NOMBRE` | Elimina una IA personalizada, con confirmacion. |
+
+La IA integrada **ASIS** siempre esta disponible y usa la configuracion del entorno o del archivo `.env`.
+
+## Configuracion
+
+Copia el archivo de ejemplo y escribe tu clave:
+
+```bash
+# Windows
+Copy-Item .env.example .env
+
+# macOS / Linux
+cp .env.example .env
+```
+
+```dotenv
+ASIS_GEMINI_API_KEY=tu_clave_aqui
+```
+
+Tambien puedes usar variables de entorno sin archivo `.env`:
 
 ```powershell
-$env:ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+# Windows (PowerShell)
+$env:ASIS_GEMINI_API_KEY="tu_clave_aqui"
 python asis.py
 ```
 
-Para uso persistente, añade la exportación a `~/.bashrc`, `~/.profile` o usa un archivo `.env` (asegúrate de añadir `.env` a `.gitignore`).
+```bash
+# macOS / Linux
+export ASIS_GEMINI_API_KEY="tu_clave_aqui"
+python asis.py
+```
 
-Buenas prácticas
+El entorno tiene prioridad sobre `.env`, de modo que puedes sobrescribir valores sin editar el archivo. `GEMINI_API_KEY` tambien se acepta como alternativa.
 
-- Nunca publiques tu clave en repositorios públicos.
-- Usa variables de entorno o servicios de gestión de secretos para entornos de producción.
-- Revoca y regenera la clave si crees que se ha filtrado.
-- Considera añadir un ejemplo de `.env.example` y documentarlo en el README.
+### Variables disponibles
 
-Sugerencias de mejora (opcional)
+| Variable | Valor por defecto | Descripcion |
+| --- | --- | --- |
+| `ASIS_GEMINI_API_KEY` | sin valor | Clave de API de Gemini. Obligatoria para conversar. |
+| `GEMINI_API_KEY` | sin valor | Alternativa a la anterior. |
+| `ASIS_MODEL` | `gemini-2.5-flash` | Modelo de la IA integrada. |
+| `ASIS_TEMPERATURE` | `0.7` | Creatividad de 0 a 2 de la IA integrada. |
+| `ASIS_MAX_HISTORY` | `40` | Mensajes de contexto que se conservan. |
+| `ASIS_SYSTEM_PROMPT` | persona de ASIS | Instruccion de sistema de la IA integrada. |
+| `ASIS_ASISTENTE` | sin valor | Nombre de la IA personalizada que se usa al arrancar. |
+| `ASIS_HOME` | `~/.asis` | Carpeta donde se guardan tus IA. |
 
-- Puedo actualizar `asis.py` para leer la variable de entorno automáticamente y añadir un ejemplo `.env.example` al repo.
-- Puedo añadir una sección en el README con pasos para crear un entorno virtual y ejecutar el proyecto de forma aislada.
+## Uso
 
-Licencia
+Abre la conversacion interactiva:
 
-Este proyecto es de código abierto; revisa el archivo LICENSE (si existe) para conocer los detalles de la licencia.
+```bash
+python asis.py
+python asis.py --asistente "Mi IA"
+```
+
+Haz una sola pregunta y sal:
+
+```bash
+python asis.py "Explicame la fotosintesis en tres frases"
+```
+
+Usa otro modelo o cambia la persona:
+
+```bash
+python asis.py --modelo gemini-2.5-pro
+python asis.py --sistema "Responde siempre en formato de lista"
+```
+
+Envia una pregunta por un pipe:
+
+```bash
+echo "Que es una API?" | python asis.py
+```
+
+Valida la configuracion sin abrir la conversacion:
+
+```bash
+python asis.py --check
+```
+
+`--check` muestra la IA activa, el modelo, la clave enmascarada y la arquitectura del interprete.
+
+### Comandos de la conversacion
+
+| Comando | Alias | Accion |
+| --- | --- | --- |
+| `/ayuda` | `/help` | Muestra la ayuda. |
+| `/crear` | `/nueva-ia` | Crea una IA personalizada. |
+| `/asistentes` | `/ias` | Lista tus IA. |
+| `/asistente [nombre]` | `/ia` | Muestra o cambia la IA activa. |
+| `/borrar-asistente [nombre]` | | Elimina una IA personalizada. |
+| `/limpiar` | `/clear` | Borra el historial de contexto. |
+| `/historial` | `/history` | Indica cuantos mensajes hay en contexto. |
+| `/modelo [nombre]` | `/model` | Muestra o cambia el modelo de la sesion. |
+| `/guardar [ruta]` | `/save` | Guarda la charla en Markdown. |
+| `/estado` | `/status` | Muestra IA, modelo, clave enmascarada, arquitectura y datos. |
+| `/salir` | `/quit`, `/exit` | Termina la sesion. |
+
+`Ctrl+C` interrumpe la respuesta que se este generando; `Ctrl+D` (o `Ctrl+Z` y Enter en Windows) cierra la sesion.
+
+### Opciones de linea de comandos
+
+| Opcion | Descripcion |
+| --- | --- |
+| `-m`, `--modelo`, `--model` | Modelo de Gemini a usar. |
+| `--sistema`, `--system` | Instruccion de sistema personalizada. |
+| `-a`, `--asistente` | Nombre de la IA personalizada a usar. |
+| `--crear` | Crea una IA personalizada y termina. No necesita clave de API. |
+| `--lista-asistentes`, `--asistentes` | Lista tus IA y termina. |
+| `--sin-streaming`, `--no-stream` | Espera la respuesta completa. |
+| `--check` | Valida la configuracion y termina. |
+| `--version` | Muestra la version. |
+
+## Ejecutable de 64 bits (Windows)
+
+El codigo Python es independiente de la arquitectura, pero el `.exe` hereda la de tu interprete. El script de build lo comprueba y se niega a generar un ejecutable con Python de 32 bits:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python scripts/build_exe.py
+```
+
+Resultado: `dist/ASIS.exe`, un ejecutable autocontenido de 64 bits con la interfaz de consola. El script comprueba la arquitectura antes de compilar y usa el bootloader x64 de PyInstaller; con Python de 32 bits se detiene sin generar el archivo.
+
+El archivo no es firmado digitalmente; Windows SmartScreen puede pedir confirmacion la primera vez. El ejecutable no se sube al repositorio: se genera localmente o se adjunta como release.
+
+## Seguridad
+
+- Nunca subas tu clave al repositorio: `.env` ya esta excluido en `.gitignore`.
+- No compartas capturas ni registros donde aparezca la clave.
+- Si crees que se filtro, revocala y genera otra en <https://aistudio.google.com/apikey>.
+- ASIS solo muestra la clave enmascarada (primeros y ultimos caracteres).
+- Tus IA guardadas incluyen sus instrucciones; revisa `~/.asis` antes de compartir esa carpeta.
+
+## Estructura del proyecto
+
+```text
+asis-ai/
+├── asis.py                  # App principal: configuracion, IA, Gemini y CLI
+├── scripts/build_exe.py     # Build de ejecutable de 64 bits con PyInstaller
+├── tests/test_asis.py       # Pruebas sin conexion ni clave real
+├── .github/workflows/ci.yml # Integracion continua
+├── .env.example             # Plantilla de configuracion
+├── requirements.txt
+├── requirements-dev.txt
+├── pyproject.toml
+├── LICENSE
+└── README.md
+```
+
+`asis.py` se organiza en cuatro piezas: configuracion (entorno y `.env`), gestion de IA personalizadas (JSON local), proveedor que habla con `google-genai` y conversacion/CLI con los comandos.
+
+## Desarrollo y pruebas
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Las pruebas usan un proveedor simulado y un directorio de datos temporal: no necesitan clave de API ni conexion. La integracion continua se ejecuta en GitHub Actions con Python 3.10, 3.12 y 3.13.
+
+## Licencia
+
+Distribuido bajo la licencia MIT. Consulta [LICENSE](LICENSE).
 
 ---
 
-# English translation / README (English)
+# English
 
-ASIS is an open-source artificial intelligence implemented as a simple, easy-to-use Python file.
+ASIS is a terminal application to **create your own AIs**. Every AI you create has its own name, personality, model, and temperature; it is stored on your machine and can be used in any session.
 
-Features
+Internally it uses Google's **Gemini** API. ASIS does not train a model: it is a small, readable client that turns Gemini into as many custom assistants as you want. The core lives in a single Python file.
 
-- Open-source project: the source code is available for review, modification, and redistribution.
-- Implemented in Python: the main program is a .py file you can run locally or integrate into other projects.
+## Features
 
-Requirements
+- Guided creation of your own AIs (name, description, personality, model, temperature).
+- Store, list, switch, and delete your AIs.
+- Context-aware chat with streaming responses and configurable history.
+- One-shot questions, pipe input, and Markdown export.
+- Environment variables or `.env`; the key never lives in the code.
+- Clear errors for invalid keys, quotas, and network issues.
+- 64-bit requirement, runtime check, and a 64-bit executable build script.
+- Offline test suite and GitHub Actions CI.
 
-1. Python 3.14.7 installed on your system. You can check the version with:
+## Requirements
 
-```bash
-python --version
-```
+- **Python 3.10+ 64-bit** (check with `python -c "import struct; print(struct.calcsize('P') * 8)"`).
+- A free Gemini API key from <https://aistudio.google.com/apikey>.
 
-2. The "gemini" library (or the required library named gemini) installed. Install it with pip:
-
-```bash
-python -m pip install --upgrade pip
-pip install google-genai
-```
-
-Usage
-
-- Run the main Python file (for example `asis.py`) with:
+## Install
 
 ```bash
-python asis.py
+git clone https://github.com/nadiusk80-oss/asis-ai.git
+cd asis-ai
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+python -m pip install -r requirements.txt
 ```
 
-- Adjust the filename if the main file has a different name.
-
-API Key configuration
-
-For ASIS to connect to the Gemini model you need to configure your API key in the `asis.py` file.
-
-Example (add this or edit the corresponding section in `asis.py`):
-
-```python
-from google import genai
-
-# 1. Set your API Key here
-API_KEY = "(API_KEY_HERE)"
-```
-
-Obtaining the Gemini API key
-
-1. Go to: https://aistudio.google.com/prompts/new_chat
-2. Create a new conversation/prompt or follow the interface to generate/obtain your Gemini API key.
-3. Copy the key provided by the platform.
-
-How to paste the key into asis.py (Option A — direct)
-
-1. Open `asis.py` in your editor.
-2. Locate the section with the `API_KEY` variable and paste the key inside the quotes:
-
-```python
-API_KEY = "sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-```
-
-3. Save and run:
+## Create your first AI
 
 ```bash
-python asis.py
+python asis.py --crear
+python asis.py --asistente "My AI"
+python asis.py --lista-asistentes
 ```
 
-Warning: do not upload this key to public repositories.
+AIs are saved to `~/.asis/asistentes.json` (override with `ASIS_HOME`). Inside the chat, use `/crear`, `/asistentes`, `/asistente NAME`, and `/borrar-asistente NAME`.
 
-Recommended option: use an environment variable (Option B — safer)
-
-Edit `asis.py` to read the key from an environment variable:
-
-```python
-import os
-from google import genai
-
-API_KEY = os.getenv("ASIS_GEMINI_API_KEY")
-if not API_KEY:
-    raise RuntimeError("The environment variable ASIS_GEMINI_API_KEY is not set. Get the key at: https://aistudio.google.com/prompts/new_chat")
-
-# Use API_KEY with google-genai according to the rest of the code
-```
-
-On macOS / Linux (bash/zsh), export the variable and run:
+## Configure
 
 ```bash
-export ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-python asis.py
+cp .env.example .env             # Windows: Copy-Item .env.example .env
 ```
 
-On Windows (PowerShell), set and run:
+Set `ASIS_GEMINI_API_KEY` in `.env` or your environment. Optional variables: `ASIS_MODEL` (default `gemini-2.5-flash`), `ASIS_TEMPERATURE` (0.7), `ASIS_MAX_HISTORY` (40), `ASIS_SYSTEM_PROMPT`, `ASIS_ASISTENTE`, `ASIS_HOME`.
 
-```powershell
-$env:ASIS_GEMINI_API_KEY="sk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-python asis.py
+## Usage
+
+```bash
+python asis.py                              # interactive chat
+python asis.py "Explain photosynthesis"     # one-shot answer
+python asis.py --asistente "My AI"          # use a custom AI
+python asis.py --model gemini-2.5-pro       # choose a model
+python asis.py --check                      # validate configuration
+echo "What is an API?" | python asis.py
 ```
 
-For persistent use, add the export to `~/.bashrc`, `~/.profile`, or use a `.env` file (make sure to add `.env` to `.gitignore`).
+Type `/help` inside the chat to list every command. `Ctrl+C` interrupts a streaming answer.
 
-Best practices
+## 64-bit executable (Windows)
 
-- Never publish your key in public repositories.
-- Use environment variables or secret management services for production environments.
-- Revoke and regenerate the key if you think it has been leaked.
-- Consider adding a `.env.example` and document it in the README.
+```bash
+python -m pip install -r requirements-dev.txt
+python scripts/build_exe.py
+```
 
-Optional improvements
+The script refuses to build with 32-bit Python and produces `dist/ASIS.exe` as a self-contained 64-bit console executable. The binary is not committed; build it locally or attach it to a release. It is unsigned, so SmartScreen may ask for confirmation.
 
-- I can update `asis.py` to automatically read the environment variable and add a `.env.example` to the repo.
-- I can add a section to the README with steps to create a virtual environment and run the project in isolation.
+## Test
 
-License
+```bash
+python -m unittest discover -s tests -v
+```
 
-This project is open-source; check the LICENSE file (if present) for license details.
+No API key or network connection is required.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
